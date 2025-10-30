@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 import smtplib
 from email.message import EmailMessage
 
+# Load credentials from Streamlit secrets instead of .env
+GMAIL_ADDRESS = st.secrets["GMAIL_ADDRESS"]
+GMAIL_APP_PASSWORD = st.secrets["GMAIL_APP_PASSWORD"]
+
 def load_file():
     uploaded_file = st.sidebar.file_uploader("Upload Excel or CSV", type=['xlsx', 'csv'])
     if uploaded_file:
@@ -22,11 +26,11 @@ def display_contract_status(df):
     for status in df['Subscription Status'].unique():
         status_lower = status.lower()
         if status_lower == 'expired':
-            color = '#f44336'  # Red
+            color = '#f44336'
         elif status_lower == 'active':
-            color = '#4CAF50'  # Green
+            color = '#4CAF50'
         else:
-            color = '#2196F3'  # Blue for others
+            color = '#2196F3'
 
         st.markdown(f'''
             <div style="background-color:{color}; padding: 8px; border-radius: 5px; margin-top: 10px; margin-bottom: 5px;">
@@ -52,7 +56,7 @@ def display_upcoming_renewals(df):
     st.dataframe(upcoming, use_container_width=True)
     return upcoming
 
-def send_email(sender_email, sender_password, recipients, subject, upcoming_df, expired_df):
+def send_email_gmail(sender_email, sender_password, recipients, subject, upcoming_df, expired_df):
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender_email
@@ -60,6 +64,7 @@ def send_email(sender_email, sender_password, recipients, subject, upcoming_df, 
 
     upcoming_html = upcoming_df.to_html(index=False)
     expired_html = expired_df.to_html(index=False)
+
     html_content = f"""
     <html>
         <body>
@@ -71,7 +76,6 @@ def send_email(sender_email, sender_password, recipients, subject, upcoming_df, 
         </body>
     </html>
     """
-
     msg.add_alternative(html_content, subtype='html')
 
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
@@ -79,13 +83,14 @@ def send_email(sender_email, sender_password, recipients, subject, upcoming_df, 
         smtp.send_message(msg)
 
 def main():
-    st.sidebar.title("Upload your data and email credentials")
+    st.sidebar.title("Upload your data")
     df = load_file()
 
-    sender_email = st.sidebar.text_input("Sender Email")
-    sender_password = st.sidebar.text_input("Sender Email Password", type="password")
-
-    recipient_emails = ['samhita.bhakta@roche.com']
+    recipient_options = [
+        "samhita.bhakta@roche.com",
+        "amresh.singh@roche.com",
+        "bejoy.baby@roche.com"
+    ]
 
     if df is not None:
         tabs = st.tabs(["Contract Status", "Upcoming Renewals"])
@@ -96,23 +101,21 @@ def main():
 
             expired = df[df['Subscription Status'].str.lower() == 'expired'][['SOLDTO_NAME', 'FINANCIAL_MATERIAL_NUMBER', 'Material Name', 'Validfrom', 'Validuntil']]
 
+            recipient_email = st.selectbox("Select recipient email", recipient_options)
+
             if st.button("Send Email with Upcoming Renewals and Expired"):
-                confirm = st.radio("Do you want to send the list to the recipients?", ("Yes", "No"))
-                if confirm == "Yes":
-                    try:
-                        send_email(
-                            sender_email,
-                            sender_password,
-                            recipient_emails,
-                            "Upcoming Renewals and Expired Contracts Report",
-                            upcoming,
-                            expired
-                        )
-                        st.success("Email sent successfully!")
-                    except Exception as e:
-                        st.error(f"Failed to send email: {e}")
-                else:
-                    st.info("Email sending cancelled.")
+                try:
+                    send_email_gmail(
+                        GMAIL_ADDRESS,
+                        GMAIL_APP_PASSWORD,
+                        [recipient_email],
+                        "Upcoming Renewals and Expired Contracts Report",
+                        upcoming,
+                        expired
+                    )
+                    st.success(f"Email has been sent to {recipient_email}!")
+                except Exception as e:
+                    st.error(f"Failed to send email: {e}")
     else:
         st.info("Please upload an Excel or CSV file to proceed.")
 
