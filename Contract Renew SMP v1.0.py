@@ -89,7 +89,8 @@ def main():
     recipient_options = [
         "samhita.bhakta@roche.com",
         "amresh.singh@roche.com",
-        "bejoy.baby@roche.com"
+        "bejoy.baby@roche.com",
+        "sreekumar.nair@roche.com"
     ]
 
     if df is not None:
@@ -121,3 +122,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
